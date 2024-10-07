@@ -19,7 +19,7 @@ with open(model_path, "rb") as f:
     model = pickle.load(f)
 
 # Charger les données clients CSV
-data_path = os.path.join(base_path, "data", "train_df.csv")
+data_path = os.path.join(base_path, "data", "sample_client_api.csv")
 df = pd.read_csv(data_path)
 
 # Charger la feature importance CSV
