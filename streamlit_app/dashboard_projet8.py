@@ -24,124 +24,131 @@ THRESHOLD = 0.36
 # Menu déroulant pour sélectionner un client
 client_id = st.text_input("Entrez l'ID du Client")
 
+# Initialiser les variables pour éviter l'erreur si le bouton n'est pas cliqué
+data = None
+probability = None
+decision = None
+shap_values = None
+features = None
 
+# Ajouter le bouton ici, juste après l'entrée du client_id
+if st.button("Obtenir les Informations du Client"):
+    # Construire l'URL de l'API pour ce client
+    endpoint = f"{api_url}/client/{client_id}"
+    
+    # Envoyer une requête GET à l'API
+    response = requests.get(endpoint)
+
+    if response.status_code == 200:
+        # Récupérer les données JSON renvoyées par l'API
+        data = response.json()
+        probability = data['probability_of_default']
+        decision = data["decision"]
+        
+        # Récupérer les valeurs SHAP
+        shap_endpoint = f"{api_url}/client/{client_id}"
+        shap_response = requests.get(shap_endpoint)
+        
+        if shap_response.status_code == 200:
+            shap_data = shap_response.json()
+            shap_values = np.array(shap_data["shap_values"]["shap_values"])
+            features = shap_data["shap_values"]["features"]
+        else:
+            shap_values = None
+            features = None
+    else:
+        st.error("Erreur lors de la récupération des informations du client.")
+        data = None
+        probability = None
+        decision = None
+        shap_values = None
+        features = None
+
+#-------------------------------------------------------------------------------------
 
 # Création des onglets
-tab1, tab2, tab3, tab4 = st.tabs(["Décision et Importance Locale", "Importance Globale", "Distribution des Variables", "Analyse Bi-variée"])
+tab1, tab2, tab3, tab4 = st.tabs(["Décision", "Le modèle global", "Distribution des Caractéristiques", "Analyse Bi-variée des caractéristiques"])
 
 #--------------------------------------------------------------------------------------------------
 # Onglet 1 : Décision d'octroi de crédit et feature importance locale
 #--------------------------------------------------------------------------------------------------
 
 with tab1:
-    st.header("Décision d'octroi de crédit et Importance Locale")
+    st.header("Décision d'octroi de crédit")
 
-    # Bouton pour déclencher la requête à l'API
-    if st.button("Obtenir les Informations du Client"):
-        # Construire l'URL de l'API pour ce client
-        endpoint = f"{api_url}/client/{client_id}"
-        
-        # Envoyer une requête GET à l'API
-        response = requests.get(endpoint)
-        
-        if response.status_code == 200:
-            # Récupérer les données JSON renvoyées par l'API
-            data = response.json()
-            probability = data['probability_of_default']
-            
-            # Afficher les résultats
-            st.write("### Décision d'octroi de crédit")
-            # st.write(f"**Probabilité de Défaut** : {probability:.2f}")
-            
-            # Afficher la décision avec une couleur
-            decision = data["decision"]
-            decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
+    # Afficher les informations du client et la décision
+    if data:
+        # Afficher la décision avec une couleur
+        decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
+        st.markdown(f"""
+            <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
+                        border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
+                {decision}
+            </div>
+        """, unsafe_allow_html=True)
 
-            # Utiliser un style CSS pour ajouter une bordure autour de la décision
-            st.markdown(f"""
-                <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
-                            border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
-                    {decision}
-                </div>
-            """, unsafe_allow_html=True)
+        # Visualisation de la probabilité sous forme de compteur
+        st.write("### Visualisation de la Probabilité de Défaut")
+        st.markdown(""" Le compteur indique la probabilité (en pourcentage) que le client puisse faire défaut,
+        c'est à dire qu'il ne rembourse pas son prêt.
+        Nous considérons que si la probabilité de défaut dépasse 36%, le risque de ne pas rembourser le crédit
+        est trop important pour la société. Si le client, indiqué par la bande noire sur le compteur, est situé
+        en zone bleue, il remboursera probablement son prêt. S'il se situe en zone rose, le client ne remboursera probablement
+        pas son prêt. Le nombre noir
+        indiqué au milieu du graphique indique la valeur de la probabilité de défaut du client. Le nombre inscrit
+        en vert indique la différence entre la valeur seuil de risque et la valeur de probabilité de défaut du client.  
+        ---  
+        Si le client se situe proche du seuil de décision, vous pouvez regarder en détail les caractéristiques 
+        du client qui ont contribué à cette décision grâce à la figure des contributions des caractéristiques 
+        ci-dessous et réévaluer votre décision. """)
 
-            #----------------------------------------------------------------
-            # VISUALISATION DE LA PROBABILITE DE DEFAUT
-
-            # Visualisation de la probabilité sous forme de compteur
-            st.write("### Visualisation de la Probabilité de Défaut")
-            st.write("""La jauge représente la probabilité qu'un client rembourse (bleu) ou pas 
-            son prêt (rose). La valeur du client est indiquée en noir.""")
-
-            # Création du compteur avec Plotly
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=probability * 100,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Probabilité de Défaut", 'font': {'size': 24}},
-                delta={'reference': THRESHOLD * 100, 'font': {'size': 20}},
-                number={'font': {'size': 60, 'color': 'black'}},
-                gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue", 'tickfont': {'size': 20}},
-                    'bar': {'color': "black"},
-                    'bgcolor': "white",
-                    'borderwidth': 2,
-                    'bordercolor': "gray",
-                    'steps': [
-                        {'range': [0, THRESHOLD * 100], 'color': '#008BFB'},  # Couleur pour en dessous du seuil (bleu)
-                        {'range': [THRESHOLD * 100, 100], 'color': '#FF005E'}  # Couleur pour au-dessus du seuil (rose)
-                    ],
-                    'threshold': {
-                        'line': {'color': "darkblue", 'width': 4},
-                        'thickness': 0.75,
-                        'value': THRESHOLD * 100
-                    }
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=probability * 100,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Probabilité de Défaut", 'font': {'size': 24}},
+            delta={'reference': 36, 'font': {'size': 20}},
+            number={'font': {'size': 60, 'color': 'black'}},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue", 'tickfont': {'size': 20}},
+                'bar': {'color': "black"},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, 36], 'color': '#008BFB'},  # Couleur pour en dessous du seuil
+                    {'range': [36, 100], 'color': '#FF005E'}  # Couleur pour au-dessus du seuil
+                ],
+                'threshold': {
+                    'line': {'color': "darkblue", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 36
                 }
-            ))
+            }
+        ))
 
-            # Afficher le compteur dans Streamlit
-            st.plotly_chart(fig_gauge)
+        # Afficher le compteur dans Streamlit
+        st.plotly_chart(fig_gauge)
 
-            #----------------------------------------------------------
-            # FEATURE IMPORTANCE LOCALE
+        #---------------------------------------------------------------
+        # VISUALISATION DES IMPORTANCES LOCALES
 
-            # Obtenir les valeurs SHAP pour ce client
-            shap_endpoint = f"{api_url}/client/{client_id}"
-            shap_response = requests.get(shap_endpoint)
+        # Afficher le plot SHAP si les valeurs sont disponibles
+        if shap_values is not None:
+            st.write("### Contribution des caractéristiques du client")
+            st.markdown("""  
+            La figure montre les principales caractéristiques du client qui ont contribué à la décision d'octroi de crédit.
+            Les caractéristiques roses ont contribué à augmenter la probabilité de défaut du client
+            tandis que les caractéristiques bleues ont contribué en la faveur de l'octroi du crédit au client.""")
 
-            # # Vérifier la réponse brute de l'API
-            # st.write("### Réponse brute SHAP:")
-            # st.json(shap_response.json())  # Afficher le contenu brut de la réponse
-            
-            if shap_response.status_code == 200:
-                # Récupérer les valeurs SHAP
-                shap_data = shap_response.json()
-                features = shap_data["shap_values"]["features"]
-                shap_values = np.array(shap_data["shap_values"]["shap_values"])
-                
-                # Créer un explainer SHAP avec force_plot et sauvegarder dans un fichier temporaire
-                st.write("### Contribution des features à la décision (SHAP)")
-                st.write("""
-                La figure force plot indique les features qui ont majoritairement contribué à la 
-                prédiction de la probabilité de défaut. Les features indiquées en roses 
-                sont en défaveur d'un octroi de crédit tandis que les features 
-                en bleu sont en faveur d'un octroi de crédit. La taille des flèches est 
-                proportionnelle à leur importance dans la décision finale.""")
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmpfile:
+                shap.force_plot(0, shap_values, features, matplotlib=True, show=False)
+                plt.savefig(tmpfile.name, bbox_inches='tight', dpi=300)
+                plt.close()
 
-                # Sauvegarder le graphique SHAP sous forme d'image dans un fichier temporaire
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmpfile:
-                    shap.force_plot(0, shap_values, features, matplotlib=True, show=False)
-                    plt.savefig(tmpfile.name, bbox_inches='tight', dpi=300)
-                    plt.close()
-                
-                # Lire l'image et l'afficher dans Streamlit
-                st.image(tmpfile.name)
-
-            else:
-                st.error("Erreur lors de la récupération des valeurs SHAP.")
-
+            st.image(tmpfile.name)
         else:
-            st.error("Client non trouvé ou erreur avec l'API.")
+            st.error("Erreur lors de la récupération des valeurs SHAP.")
 
 #-----------------------------------------------------------------------------------------------
 # Onglet 2 : Importance Globale des Features
