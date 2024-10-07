@@ -288,6 +288,7 @@ with tab3:
         data = response.json()
         top_10_features = data["top_10_features"]
         feature_data = data["feature_data"]
+        target_data = data["target"]
 
         # Menu déroulant pour sélectionner une feature à visualiser
         selected_feature = st.selectbox("Sélectionnez une variable à visualiser", top_10_features)
@@ -301,7 +302,6 @@ with tab3:
         # Obtenir la valeur de la feature pour le client sélectionné (récupéré dans l'onglet 1)
         client_value = None
         if client_id:
-            # Utiliser les données du client récupérées dans l'onglet 1
             client_endpoint = f"{api_url}/client/{client_id}"
             client_response = requests.get(client_endpoint)
 
@@ -319,19 +319,50 @@ with tab3:
 
         # Afficher l'histogramme si des valeurs valides sont disponibles
         if cleaned_feature_values:
-            # Afficher la distribution globale sous forme d'un histogramme
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.hist(cleaned_feature_values, bins=30, color='skyblue', edgecolor='black')
-            ax.set_title(f"Distribution de {selected_feature} (Tous les clients)")
-            ax.set_xlabel(selected_feature)
-            ax.set_ylabel("Fréquence")
+            # Créer une figure pour la distribution globale
+            fig_global, ax_global = plt.subplots(figsize=(10, 6))
+            ax_global.hist(cleaned_feature_values, bins=30, color='skyblue', edgecolor='black')
+            ax_global.set_title(f"Distribution de {selected_feature} (Tous les clients)")
+            ax_global.set_xlabel(selected_feature)
+            ax_global.set_ylabel("Fréquence")
 
-            # Ajouter une ligne verticale pour représenter la valeur du client
+            # Ajouter une ligne verticale pour représenter la valeur du client dans la distribution globale
             if client_value is not None:
-                ax.axvline(x=client_value, color='red', linestyle='--', label=f"Client ID {client_id}", linewidth=2)
-                ax.legend()
+                ax_global.axvline(x=client_value, color='red', linestyle='--', label=f"Client ID {client_id}", linewidth=2)
+                ax_global.legend()
 
-            # Afficher l'histogramme dans Streamlit
+            # Afficher la figure de la distribution globale dans Streamlit
+            st.pyplot(fig_global)
+
+            # Créer une figure avec deux sous-plots pour TARGET=0 et TARGET=1
+            fig, (ax_target_0, ax_target_1) = plt.subplots(1, 2, figsize=(15, 6))
+
+            # Distribution pour TARGET=0
+            target_0_values = [value for value, target in zip(feature_values, target_data) if target == 0 and value is not None]
+            ax_target_0.hist(target_0_values, bins=30, color='#008BFB', edgecolor='black')
+            ax_target_0.set_title(f"Distribution de {selected_feature} (TARGET = 0)")
+            ax_target_0.set_xlabel(selected_feature)
+            ax_target_0.set_ylabel("Fréquence")
+
+            if client_value is not None:
+                ax_target_0.axvline(x=client_value, color='red', linestyle='--', label=f"Client ID {client_id}", linewidth=2)
+                ax_target_0.legend()
+
+            # Distribution pour TARGET=1
+            target_1_values = [value for value, target in zip(feature_values, target_data) if target == 1 and value is not None]
+            ax_target_1.hist(target_1_values, bins=30, color='#FF005E', edgecolor='black')
+            ax_target_1.set_title(f"Distribution de {selected_feature} (TARGET = 1)")
+            ax_target_1.set_xlabel(selected_feature)
+            ax_target_1.set_ylabel("Fréquence")
+
+            if client_value is not None:
+                ax_target_1.axvline(x=client_value, color='red', linestyle='--', label=f"Client ID {client_id}", linewidth=2)
+                ax_target_1.legend()
+
+            # Ajustement de la mise en page pour les sous-plots
+            plt.tight_layout()
+
+            # Afficher les sous-plots dans Streamlit
             st.pyplot(fig)
         else:
             st.error(f"Aucune donnée valide disponible pour la feature '{selected_feature}'.")
