@@ -14,11 +14,17 @@ api_url = "http://127.0.0.1:8000"
 
 st.title("Dashboard de Scoring de Crédit")
 
+# Threshold pour la décision
+THRESHOLD = 0.36
+
+#--------------------------------------------------------------------------------------------------
+# Accueil et choix du client
+#--------------------------------------------------------------------------------------------------
+
 # Menu déroulant pour sélectionner un client
 client_id = st.text_input("Entrez l'ID du Client")
 
-# Threshold pour la décision
-THRESHOLD = 0.36
+
 
 # Création des onglets
 tab1, tab2, tab3, tab4 = st.tabs(["Décision et Importance Locale", "Importance Globale", "Distribution des Variables", "Analyse Bi-variée"])
@@ -279,15 +285,39 @@ with tab4:
             # Séparer les valeurs X et Y après le nettoyage
             cleaned_feature_values_x, cleaned_feature_values_y = zip(*cleaned_values)
 
-            # Afficher le scatter plot
+            # Initialiser le scatter plot
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.scatter(cleaned_feature_values_x, cleaned_feature_values_y, color='blue', edgecolor='black', alpha=0.7)
             ax.set_title(f"Scatter Plot entre {selected_feature_x} et {selected_feature_y}")
             ax.set_xlabel(selected_feature_x)
             ax.set_ylabel(selected_feature_y)
 
+            # Récupérer les valeurs pour le client choisi
+            if client_id:
+                client_endpoint = f"{api_url}/client/{client_id}"
+                client_response = requests.get(client_endpoint)
+
+                if client_response.status_code == 200:
+                    client_data = client_response.json()
+
+                    # Obtenir les valeurs X et Y pour le client spécifique
+                    try:
+                        client_value_x = client_data["client_feature_values"][selected_feature_x]
+                        client_value_y = client_data["client_feature_values"][selected_feature_y]
+                        
+                        # Ajouter un point pour le client spécifique
+                        ax.scatter(client_value_x, client_value_y, color='red', label=f"Client ID {client_id}", s=100, edgecolor='black', marker='X')
+                        ax.legend()
+
+                    except KeyError:
+                        st.error(f"Les features sélectionnées '{selected_feature_x}' et/ou '{selected_feature_y}' n'existent pas dans les données du client.")
+
+                else:
+                    st.error("Erreur lors de la récupération des informations du client.")
+
             # Afficher le scatter plot dans Streamlit
             st.pyplot(fig)
+
         else:
             st.error(f"Aucune donnée valide disponible pour les features '{selected_feature_x}' et '{selected_feature_y}'.")
 
