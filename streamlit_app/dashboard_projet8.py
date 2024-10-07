@@ -30,8 +30,19 @@ probability = None
 decision = None
 shap_values = None
 features = None
+client_values = {}  # Initialisation pour éviter les erreurs
+top_10_features = []  # Initialisation pour récupérer le top 10 des features
 
-# Ajouter le bouton ici, juste après l'entrée du client_id
+# Récupérer le top 10 des features via l'API
+feature_importance_endpoint = f"{api_url}/feature-importance"
+feature_response = requests.get(feature_importance_endpoint)
+
+if feature_response.status_code == 200:
+    # Récupérer les 10 features les plus importantes
+    feature_data = feature_response.json()
+    top_10_features = [feature["Feature"] for feature in feature_data["top_10_feature_importance"]]
+
+# Bouton d'obtention des informations du client
 if st.button("Obtenir les Informations du Client"):
     # Construire l'URL de l'API pour ce client
     endpoint = f"{api_url}/client/{client_id}"
@@ -53,9 +64,13 @@ if st.button("Obtenir les Informations du Client"):
             shap_data = shap_response.json()
             shap_values = np.array(shap_data["shap_values"]["shap_values"])
             features = shap_data["shap_values"]["features"]
+            
+            # Récupérer les valeurs du client uniquement pour les 10 features importantes
+            client_values = {k: v for k, v in shap_data.get("client_feature_values", {}).items() if k in top_10_features}
         else:
             shap_values = None
             features = None
+            client_values = {}
     else:
         st.error("Erreur lors de la récupération des informations du client.")
         data = None
@@ -63,30 +78,98 @@ if st.button("Obtenir les Informations du Client"):
         decision = None
         shap_values = None
         features = None
+        client_values = {}
+
+# -------------------------------------------------------------------------------------
+# Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
+if data:
+    decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
+    st.markdown(f"""
+        <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
+                    border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
+            {decision}
+        </div>
+    """, unsafe_allow_html=True)
+
+# -------------------------------------------------------------------------------------
+# Panneau latéral pour les 10 caractéristiques principales
+if client_values:
+    st.sidebar.header("Modifier les valeurs des 10 caractéristiques principales")
+
+    modified_values = {}
+    # Pour chaque caractéristique, on affiche la valeur actuelle et on permet la modification
+    for feature, value in client_values.items():
+        if value is None:
+            value = 0  # Assigner une valeur par défaut si la valeur est None
+        # Ajouter un champ d'entrée pour chaque feature à modifier
+        modified_value = st.sidebar.number_input(f"{feature} (Actuel : {value})", value=float(value))
+        modified_values[feature] = modified_value
+
+    # Bouton pour relancer une prédiction avec les valeurs modifiées
+    if st.sidebar.button("Mettre à jour la prédiction avec les valeurs modifiées"):
+        # Envoyer les nouvelles valeurs à l'API seulement quand le bouton est cliqué
+        modified_client_data = {"client_id": client_id, "modified_features": modified_values}
+        updated_response = requests.post(f"{api_url}/update-client", json=modified_client_data)
+
+        if updated_response.status_code == 200:
+            updated_data = updated_response.json()
+            updated_probability = updated_data['probability_of_default']
+            updated_decision = updated_data['decision']
+
+            # Afficher la nouvelle décision
+            st.write("### Nouvelle décision avec les valeurs modifiées")
+            updated_decision_color = "#008BFB" if updated_decision == "Crédit accordé" else "#FF005E"
+            st.markdown(f"""
+                <div style='display: inline-block; padding: 10px 20px; border: 2px solid {updated_decision_color}; 
+                            border-radius: 10px; color: {updated_decision_color}; font-size: 24px; font-weight: bold;'>
+                    {updated_decision}
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Afficher la nouvelle probabilité sous forme de compteur
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number+delta",
+                value=updated_probability * 100,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                title={'text': "Nouvelle probabilité de Défaut", 'font': {'size': 24}},
+                delta={'reference': 36, 'font': {'size': 20}},
+                number={'font': {'size': 60, 'color': 'black'}},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue", 'tickfont': {'size': 20}},
+                    'bar': {'color': "black"},
+                    'bgcolor': "white",
+                    'borderwidth': 2,
+                    'bordercolor': "gray",
+                    'steps': [
+                        {'range': [0, 36], 'color': '#008BFB'},  # Couleur pour en dessous du seuil
+                        {'range': [36, 100], 'color': '#FF005E'}  # Couleur pour au-dessus du seuil
+                    ],
+                    'threshold': {
+                        'line': {'color': "darkblue", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 36
+                    }
+                }
+            ))
+            st.plotly_chart(fig_gauge)
+
+        else:
+            st.error("Erreur lors de la mise à jour des valeurs du client.")
 
 #-------------------------------------------------------------------------------------
 
 # Création des onglets
-tab1, tab2, tab3, tab4 = st.tabs(["Décision", "Le modèle global", "Distribution des Caractéristiques", "Analyse Bi-variée des caractéristiques"])
+tab1, tab2, tab3, tab4 = st.tabs(["Le client", "Le modèle global", "Distribution des Caractéristiques", "Analyse Bi-variée des caractéristiques"])
 
 #--------------------------------------------------------------------------------------------------
 # Onglet 1 : Décision d'octroi de crédit et feature importance locale
 #--------------------------------------------------------------------------------------------------
 
 with tab1:
-    st.header("Décision d'octroi de crédit")
+    # st.header("Décision d'octroi de crédit et Importance Locale")
 
     # Afficher les informations du client et la décision
     if data:
-        # Afficher la décision avec une couleur
-        decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
-        st.markdown(f"""
-            <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
-                        border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
-                {decision}
-            </div>
-        """, unsafe_allow_html=True)
-
         # Visualisation de la probabilité sous forme de compteur
         st.write("### Visualisation de la Probabilité de Défaut")
         st.markdown(""" Le compteur indique la probabilité (en pourcentage) que le client puisse faire défaut,

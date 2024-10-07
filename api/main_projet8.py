@@ -121,32 +121,6 @@ def get_feature_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# @app.get("/feature-data/{feature_name}")
-# def get_feature_data(feature_name: str):
-#     try:
-#         # Vérifier que la feature existe dans le DataFrame
-#         if feature_name not in df.columns:
-#             raise HTTPException(status_code=404, detail=f"Feature '{feature_name}' not found")
-
-#         # Extraire les valeurs de la feature
-#         feature_values = df[feature_name].replace([np.inf, -np.inf, np.nan], None).tolist()
-
-#         # Inclure la variable target si nécessaire
-#         target = df['TARGET'].replace([np.inf, -np.inf, np.nan], None).tolist()
-
-#         return {
-#             "feature_name": feature_name,
-#             "feature_data": feature_values,
-#             "target": target
-#         }
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Erreur : {str(e)}")
-
-# @app.get("/tititi")
-# def get_tititi():
-#     return {"message": "toutoutou"}
-
 @app.get("/")
 def read_root():
     return {"message": "API is running!"}
