@@ -1,3 +1,26 @@
+##################################################################################################
+### INTERFACE CREDIT SCORING
+##################################################################################################
+
+"""
+Sections principales:
+1. Importation des bibliothèques et lien vers l'API
+2. Choix du client et décision d'octroi de crédit
+3. Onglet 1: Visualisations de la décision et de l'importance locale des caractéristiques
+4. Onglet 2: Visualisation de l'importance globale des caractéristiques dans le modèle
+5. Onglet 3: Visualisation de la distribution des caractéristiques
+6. Onglet 4: Visualisation bi-variée des caractéristiques
+7. Onglet 5: Description des caractéristiques
+"""
+
+
+
+
+
+###################################################################################################
+# Import des bibliothèques et lien vers l'API
+#--------------------------------------------------------------------------------------------------
+
 import streamlit as st
 import requests
 import pandas as pd
@@ -12,14 +35,39 @@ import plotly.graph_objects as go
 # Adresse de l'API
 api_url = "http://127.0.0.1:8000"
 
-st.title("Dashboard de Scoring de Crédit")
+
+
+
+
+
+
+
+
+###################################################################################################
+# Choix du client et décision d'octroi de crédit
+#--------------------------------------------------------------------------------------------------
+
+# """
+# Sous-parties:
+# - Introduction au tableau de bord et Initialisation des variables
+# - Bouton d'obtention des informations du client
+# - Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
+# - Panneau latéral pour les 10 caractéristqiues principales
+# """
+
+#--------------------------------------------------------------------------------------------------
+# Introduction au tableau de bord et initialisation des variables
+
+st.title("Credit Scoring")
+st.markdown(""" **Bienvenue sur le tableau de bord interactif d’octroi de crédit de la société Prêt à dépenser!**  
+En entrant l'ID d'un client, vous obtenez une décision d'octroi de crédit basée sur un modèle de machine learning 
+entraîné sur les données historiques de plus de 300 000 clients. Les différentes sections de ce tableau de bord vous 
+permettent d’avoir une vue détaillée des facteurs déterminants dans la décision d’octroi de crédit et de faciliter 
+une potentielle réévaluation de la décision.
+        """)
 
 # Threshold pour la décision
 THRESHOLD = 0.36
-
-#--------------------------------------------------------------------------------------------------
-# Accueil et choix du client
-#--------------------------------------------------------------------------------------------------
 
 # Menu déroulant pour sélectionner un client
 client_id = st.text_input("Entrez l'ID du Client")
@@ -42,6 +90,9 @@ if feature_response.status_code == 200:
     feature_data = feature_response.json()
     top_10_features = [feature["Feature"] for feature in feature_data["top_10_feature_importance"]]
 
+
+
+#--------------------------------------------------------------------------------------------------
 # Bouton d'obtention des informations du client
 if st.button("Obtenir les Informations du Client"):
     # Construire l'URL de l'API pour ce client
@@ -80,6 +131,8 @@ if st.button("Obtenir les Informations du Client"):
         features = None
         client_values = {}
 
+
+
 # -------------------------------------------------------------------------------------
 # Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
 if data:
@@ -91,8 +144,11 @@ if data:
         </div>
     """, unsafe_allow_html=True)
 
+
+
 # -------------------------------------------------------------------------------------
 # Panneau latéral pour les 10 caractéristiques principales
+
 if client_values:
     st.sidebar.header("Modifier les valeurs des 10 caractéristiques principales")
 
@@ -156,14 +212,37 @@ if client_values:
         else:
             st.error("Erreur lors de la mise à jour des valeurs du client.")
 
-#-------------------------------------------------------------------------------------
 
+
+
+
+
+#-------------------------------------------------------------------------------------------------
 # Création des onglets
-tab1, tab2, tab3, tab4 = st.tabs(["Le client", "Le modèle global", "Distribution des Caractéristiques", "Analyse Bi-variée des caractéristiques"])
 
-#--------------------------------------------------------------------------------------------------
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Le client", 
+    "Le modèle global", 
+    "Distribution des Caractéristiques", 
+    "Analyse Bi-variée des caractéristiques", 
+    "Description des caractéristiques"
+])
+
+
+
+
+
+
+
+###################################################################################################
 # Onglet 1 : Décision d'octroi de crédit et feature importance locale
 #--------------------------------------------------------------------------------------------------
+
+# '''
+# Visualisation de :
+# - la décision d'octroi de crédit sous forme de compteur avec indication de la valeur seuil de décision.
+# - la feature importance locale (valeurs shap)
+# '''
 
 with tab1:
     # st.header("Décision d'octroi de crédit et Importance Locale")
@@ -213,7 +292,7 @@ with tab1:
         # Afficher le compteur dans Streamlit
         st.plotly_chart(fig_gauge)
 
-        #---------------------------------------------------------------
+        #------------------------------------------------------------------------------------------
         # VISUALISATION DES IMPORTANCES LOCALES
 
         # Afficher le plot SHAP si les valeurs sont disponibles
@@ -233,13 +312,28 @@ with tab1:
         else:
             st.error("Erreur lors de la récupération des valeurs SHAP.")
 
+
+
+
+
+
+
+
+
+
+###################################################################################################
+# Onglet 2 : Importance Globale des Features dans le modèle
 #-----------------------------------------------------------------------------------------------
-# Onglet 2 : Importance Globale des Features
-#-----------------------------------------------------------------------------------------------
+
+# '''
+# Visualisation des importances des caractéristiques issues du top 10 des features importances globales
+# du modèle seulement seulement.
+# '''
+
 with tab2:
-    st.header("Importance Globale des Features (Top 10)")
-    st.write("""La figure ci-dessous représente les 10 features les plus importantes qui ont contribuées
-    à l'élaboration du modèle de prédiction de défaut du client.""")
+    # st.header("Importance Globale des caractéristiques (Top 10)")
+    st.write("""L'histogramme représente les 10 plus importantes caractéristiques qui ont contribuées
+    à l'élaboration du modèle de prédiction de défaut du client. """)
 
     # Construire l'URL de l'API pour récupérer la feature importance
     feature_importance_endpoint = f"{api_url}/feature-importance"
@@ -268,15 +362,35 @@ with tab2:
     else:
         st.error("Erreur lors de la récupération des features importantes.")
 
-#-----------------------------------------------------------------------------------------------
-# Onglet 3 : Distribution des variables
+
+
+
+
+
+
+
+
+
+###################################################################################################
+# Onglet 3 : Distribution des caractéristiques
 #-----------------------------------------------------------------------------------------------
 
+# '''
+# Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
+# Après avoir choisi une caractéristique à analyser, il y a 3 figures:
+# - Figure de la distribution de tous les clients
+# - Figure de la distribution des clients ayant remboursé leur prêt
+# - Figure de la distribution des clients n'ayant pas remboursé leur prêt.
+# La situation du client concerné par l'analyse est indiquée par une ligne verticale.
+# '''
+
 with tab3:
-    st.header("Distribution des Variables")
+    # st.header("Distribution des Variables")
     st.markdown("""
-        Le menu déroulant vous permet de sélectionner une des 10 features les plus importantes 
-        afin de visualiser sa distribution parmi tous les autres clients de la base de données.
+        Choisissez une des 10 caractéristiques les plus importantes du modèle
+        afin de visualiser la distribution de tous les clients, celle des clients ayant remboursé leur
+        crédit, et celle des clients en défaut. La ligne verticale indique la position du client par 
+        rapport à l'ensemble des autres clients.
     """)
 
     # Récupérer les données des 10 features les plus importantes via l'API
@@ -340,7 +454,7 @@ with tab3:
             # Distribution pour TARGET=0
             target_0_values = [value for value, target in zip(feature_values, target_data) if target == 0 and value is not None]
             ax_target_0.hist(target_0_values, bins=30, color='#008BFB', edgecolor='black')
-            ax_target_0.set_title(f"Distribution de {selected_feature} (TARGET = 0)")
+            ax_target_0.set_title(f"Distribution de {selected_feature} (clients au crédit remboursé)")
             ax_target_0.set_xlabel(selected_feature)
             ax_target_0.set_ylabel("Fréquence")
 
@@ -351,7 +465,7 @@ with tab3:
             # Distribution pour TARGET=1
             target_1_values = [value for value, target in zip(feature_values, target_data) if target == 1 and value is not None]
             ax_target_1.hist(target_1_values, bins=30, color='#FF005E', edgecolor='black')
-            ax_target_1.set_title(f"Distribution de {selected_feature} (TARGET = 1)")
+            ax_target_1.set_title(f"Distribution de {selected_feature} (clients en défaut)")
             ax_target_1.set_xlabel(selected_feature)
             ax_target_1.set_ylabel("Fréquence")
 
@@ -370,13 +484,34 @@ with tab3:
     else:
         st.error("Erreur lors de la récupération des données de features.")
 
-#-----------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+###################################################################################################
 # Onglet 4 : Analyse bi-variée
 #-----------------------------------------------------------------------------------------------
 
+# '''
+# Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
+# Après avoir choisi deux caractéristiques à analyser, il y a 3 figures:
+# - Figure de la distribution de tous les clients
+# - Figure de la distribution des clients ayant remboursé leur prêt
+# - Figure de la distribution des clients n'ayant pas remboursé leur prêt.
+# La situation du client concerné par l'analyse est indiquée par une croix rouge.
+# '''
+
 with tab4:
-    st.header("Analyse Bi-variée")
-    st.write("Sélectionnez deux features parmi les 10 features les plus importantes pour visualiser un scatter plot.")
+    # st.header("Analyse Bi-variée")
+    st.write("""Sélectionnez deux caractéristiques parmi les 10 caractéristiques les plus importantes 
+    pour visualiser un scatter plot de tous les clients, des clients ayant remboursé leur prêt ou des 
+    clients en défaut. La croix rouge indique la position du client par rapport à l'ensemble
+    des autres clients.""")
 
     # Récupérer les données des 10 features les plus importantes via l'API
     feature_data_endpoint = f"{api_url}/feature-data"
@@ -387,6 +522,7 @@ with tab4:
         data = response.json()
         top_10_features = data["top_10_features"]
         feature_data = data["feature_data"]
+        target_data = data["target"]  # Récupérer les données target
 
         # Sélectionner deux features parmi les top 10
         selected_feature_x = st.selectbox("Sélectionnez la première feature (axe X)", top_10_features, key="x_feature")
@@ -398,22 +534,22 @@ with tab4:
 
         # Filtrer les valeurs None dans les deux features
         cleaned_values = [
-            (x, y) for x, y in zip(feature_values_x, feature_values_y)
+            (x, y, target) for x, y, target in zip(feature_values_x, feature_values_y, target_data)
             if x is not None and y is not None
         ]
 
         if cleaned_values:
             # Séparer les valeurs X et Y après le nettoyage
-            cleaned_feature_values_x, cleaned_feature_values_y = zip(*cleaned_values)
+            cleaned_feature_values_x, cleaned_feature_values_y, cleaned_target = zip(*cleaned_values)
 
-            # Initialiser le scatter plot
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.scatter(cleaned_feature_values_x, cleaned_feature_values_y, color='blue', edgecolor='black', alpha=0.7)
-            ax.set_title(f"Scatter Plot entre {selected_feature_x} et {selected_feature_y}")
-            ax.set_xlabel(selected_feature_x)
-            ax.set_ylabel(selected_feature_y)
+            # Initialiser le scatter plot global
+            fig_global, ax_global = plt.subplots(figsize=(10, 6))
+            ax_global.scatter(cleaned_feature_values_x, cleaned_feature_values_y, color='skyblue', edgecolor='black', alpha=0.7)
+            ax_global.set_title(f"Scatter Plot entre {selected_feature_x} et {selected_feature_y} (Tous les clients)")
+            ax_global.set_xlabel(selected_feature_x)
+            ax_global.set_ylabel(selected_feature_y)
 
-            # Récupérer les valeurs pour le client choisi
+            # Ajouter un point pour le client spécifique dans le graphique global
             if client_id:
                 client_endpoint = f"{api_url}/client/{client_id}"
                 client_response = requests.get(client_endpoint)
@@ -425,18 +561,56 @@ with tab4:
                     try:
                         client_value_x = client_data["client_feature_values"][selected_feature_x]
                         client_value_y = client_data["client_feature_values"][selected_feature_y]
-                        
+
                         # Ajouter un point pour le client spécifique
-                        ax.scatter(client_value_x, client_value_y, color='red', label=f"Client ID {client_id}", s=100, edgecolor='black', marker='X')
-                        ax.legend()
+                        ax_global.scatter(client_value_x, client_value_y, color='red', label=f"Client ID {client_id}", s=200, edgecolor='black', marker='X')
+                        ax_global.legend()
 
                     except KeyError:
                         st.error(f"Les features sélectionnées '{selected_feature_x}' et/ou '{selected_feature_y}' n'existent pas dans les données du client.")
-
                 else:
                     st.error("Erreur lors de la récupération des informations du client.")
 
-            # Afficher le scatter plot dans Streamlit
+            # Afficher le scatter plot global dans Streamlit
+            st.pyplot(fig_global)
+
+            # Créer deux sous-plots pour TARGET=0 et TARGET=1
+            fig, (ax_target_0, ax_target_1) = plt.subplots(1, 2, figsize=(15, 6))
+
+            # Scatter plot pour TARGET=0 avec des points bleus
+            target_0_values = [
+                (x, y) for x, y, target in zip(cleaned_feature_values_x, cleaned_feature_values_y, cleaned_target)
+                if target == 0
+            ]
+            if target_0_values:
+                target_0_x, target_0_y = zip(*target_0_values)
+                ax_target_0.scatter(target_0_x, target_0_y, color='#008BFB', edgecolor='black', alpha=0.7)
+            ax_target_0.set_title(f"Scatter Plot entre {selected_feature_x} et {selected_feature_y} (clients au crédit remboursé)")
+            ax_target_0.set_xlabel(selected_feature_x)
+            ax_target_0.set_ylabel(selected_feature_y)
+
+            if client_value_x is not None and client_value_y is not None:
+                ax_target_0.scatter(client_value_x, client_value_y, color='red', label=f"Client ID {client_id}", s=200, edgecolor='black', marker='X')
+                ax_target_0.legend()
+
+            # Scatter plot pour TARGET=1 avec des points roses
+            target_1_values = [
+                (x, y) for x, y, target in zip(cleaned_feature_values_x, cleaned_feature_values_y, cleaned_target)
+                if target == 1
+            ]
+            if target_1_values:
+                target_1_x, target_1_y = zip(*target_1_values)
+                ax_target_1.scatter(target_1_x, target_1_y, color='#FF005E', edgecolor='black', alpha=0.7)
+            ax_target_1.set_title(f"Scatter Plot entre {selected_feature_x} et {selected_feature_y} (clients en défaut)")
+            ax_target_1.set_xlabel(selected_feature_x)
+            ax_target_1.set_ylabel(selected_feature_y)
+
+            if client_value_x is not None and client_value_y is not None:
+                ax_target_1.scatter(client_value_x, client_value_y, color='red', label=f"Client ID {client_id}", s=200, edgecolor='black', marker='X')
+                ax_target_1.legend()
+
+            # Ajuster la mise en page et afficher les sous-plots
+            plt.tight_layout()
             st.pyplot(fig)
 
         else:
@@ -444,3 +618,46 @@ with tab4:
 
     else:
         st.error("Erreur lors de la récupération des données de features.")
+
+
+
+
+
+
+
+
+
+
+
+###################################################################################################
+# Onglet 5 : Description des caractéristiques
+#-----------------------------------------------------------------------------------------------
+
+# '''
+# Pour aider à l'interprétation des figures, nous utilisons la description du contenu des colonnes en anglais.
+# '''
+
+with tab5:
+    # st.header("Explications des Variables")
+    st.write("Sélectionnez une caractéristique pour voir sa description en anglais.")
+
+    # Récupérer les données de description via l'API
+    description_endpoint = f"{api_url}/column-description"
+    response = requests.get(description_endpoint)
+
+    if response.status_code == 200:
+        # Extraire les données
+        data = response.json()
+        columns_description = data['columns_description']
+
+        # Créer un dictionnaire pour associer les noms des variables à leurs descriptions
+        columns_dict = {item['Row']: item['Description'] for item in columns_description}
+
+        # Créer un menu déroulant pour choisir une variable
+        selected_variable = st.selectbox("Sélectionnez une variable", list(columns_dict.keys()))
+
+        # Afficher la description de la variable sélectionnée
+        st.write(f"### Description de {selected_variable}")
+        st.write(columns_dict[selected_variable])
+    else:
+        st.error("Erreur lors de la récupération des données de description des colonnes.")

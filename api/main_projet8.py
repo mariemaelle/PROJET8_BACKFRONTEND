@@ -26,6 +26,10 @@ df = pd.read_csv(data_path)
 feature_importance_path = os.path.join(base_path, "data", "feature_importance.csv")
 feature_importance_df = pd.read_csv(feature_importance_path)
 
+# Charger le fichier contenant les descriptions des colonnes
+file_path = os.path.join(base_path,'data', 'HomeCredit_columns_description.csv')
+df_columns_description = pd.read_csv(file_path, encoding='ISO-8859-1')
+
 # Utiliser le seuil pour la décision de prêt
 THRESHOLD = 0.36
 
@@ -121,6 +125,17 @@ def get_feature_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Endpoint pour récupérer les descriptions des features
+@app.get("/column-description")
+def get_column_description():
+    try:
+        # Extraire les colonnes "Row" et "Description"
+        columns_data = df_columns_description[['Row', 'Description']].dropna().to_dict(orient='records')
+        return {"columns_description": columns_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Endpoint pour vérifier que l'API fonctionne
 @app.get("/")
 def read_root():
     return {"message": "API is running!"}
