@@ -47,13 +47,11 @@ api_url = "http://127.0.0.1:8000"
 # Choix du client et décision d'octroi de crédit
 #--------------------------------------------------------------------------------------------------
 
-# """
-# Sous-parties:
+# Description des Sous-parties:
 # - Introduction au tableau de bord et Initialisation des variables
 # - Bouton d'obtention des informations du client
 # - Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
 # - Panneau latéral pour les 10 caractéristqiues principales
-# """
 
 #--------------------------------------------------------------------------------------------------
 # Introduction au tableau de bord et initialisation des variables
@@ -238,11 +236,10 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # Onglet 1 : Décision d'octroi de crédit et feature importance locale
 #--------------------------------------------------------------------------------------------------
 
-# '''
-# Visualisation de :
+# Description: Visualisation de :
 # - la décision d'octroi de crédit sous forme de compteur avec indication de la valeur seuil de décision.
 # - la feature importance locale (valeurs shap)
-# '''
+
 
 with tab1:
     # st.header("Décision d'octroi de crédit et Importance Locale")
@@ -325,10 +322,9 @@ with tab1:
 # Onglet 2 : Importance Globale des Features dans le modèle
 #-----------------------------------------------------------------------------------------------
 
-# '''
-# Visualisation des importances des caractéristiques issues du top 10 des features importances globales
+# Description: Visualisation des importances des caractéristiques issues du top 10 des features importances globales
 # du modèle seulement seulement.
-# '''
+
 
 with tab2:
     # st.header("Importance Globale des caractéristiques (Top 10)")
@@ -375,14 +371,13 @@ with tab2:
 # Onglet 3 : Distribution des caractéristiques
 #-----------------------------------------------------------------------------------------------
 
-# '''
-# Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
+# Description: Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
 # Après avoir choisi une caractéristique à analyser, il y a 3 figures:
 # - Figure de la distribution de tous les clients
 # - Figure de la distribution des clients ayant remboursé leur prêt
 # - Figure de la distribution des clients n'ayant pas remboursé leur prêt.
 # La situation du client concerné par l'analyse est indiquée par une ligne verticale.
-# '''
+
 
 with tab3:
     # st.header("Distribution des Variables")
@@ -497,14 +492,13 @@ with tab3:
 # Onglet 4 : Analyse bi-variée
 #-----------------------------------------------------------------------------------------------
 
-# '''
-# Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
+# Description: Visualisation des caractéristiques issues du top 10 des features importances globales seulement.
 # Après avoir choisi deux caractéristiques à analyser, il y a 3 figures:
 # - Figure de la distribution de tous les clients
 # - Figure de la distribution des clients ayant remboursé leur prêt
 # - Figure de la distribution des clients n'ayant pas remboursé leur prêt.
 # La situation du client concerné par l'analyse est indiquée par une croix rouge.
-# '''
+
 
 with tab4:
     # st.header("Analyse Bi-variée")
@@ -633,9 +627,9 @@ with tab4:
 # Onglet 5 : Description des caractéristiques
 #-----------------------------------------------------------------------------------------------
 
-# '''
-# Pour aider à l'interprétation des figures, nous utilisons la description du contenu des colonnes en anglais.
-# '''
+# Description: Pour aider à l'interprétation des figures, nous utilisons la description du contenu 
+# des colonnes en anglais.
+
 
 with tab5:
     # st.header("Explications des Variables")
