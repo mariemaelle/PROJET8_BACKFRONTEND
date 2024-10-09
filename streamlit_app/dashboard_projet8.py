@@ -35,9 +35,21 @@ import plotly.graph_objects as go
 # Adresse de l'API
 api_url = "http://127.0.0.1:8000"
 
+# Threshold pour la décision
+THRESHOLD = 0.36
 
+#-------------------------------------------------------------------------------------------------
+# Création des onglets
 
-
+# Barre latérale pour la navigation
+st.sidebar.title("Navigation")
+selection = st.sidebar.radio("Choisissez une section:", 
+                             ["Accueil",
+                              "Le client: décision d'octroi de crédit", 
+                              "Distribution des Caractéristiques", 
+                              "Analyse Bi-variée",
+                              "Le modèle global", 
+                              "Description des caractéristiques"])
 
 
 
@@ -56,176 +68,14 @@ api_url = "http://127.0.0.1:8000"
 #--------------------------------------------------------------------------------------------------
 # Introduction au tableau de bord et initialisation des variables
 
-st.title("Credit Scoring")
-st.markdown(""" **Bienvenue sur le tableau de bord interactif d’octroi de crédit de la société Prêt à dépenser!**  
-En entrant l'ID d'un client, vous obtenez une décision d'octroi de crédit basée sur un modèle de machine learning 
-entraîné sur les données historiques de plus de 300 000 clients. Les différentes sections de ce tableau de bord vous 
-permettent d’avoir une vue détaillée des facteurs déterminants dans la décision d’octroi de crédit et de faciliter 
-une potentielle réévaluation de la décision.
-        """)
-
-# Threshold pour la décision
-THRESHOLD = 0.36
-
-# Menu déroulant pour sélectionner un client
-client_id = st.text_input("Entrez l'ID du Client")
-
-# Initialiser les variables pour éviter l'erreur si le bouton n'est pas cliqué
-data = None
-probability = None
-decision = None
-shap_values = None
-features = None
-client_values = {}  # Initialisation pour éviter les erreurs
-top_10_features = []  # Initialisation pour récupérer le top 10 des features
-
-# Récupérer le top 10 des features via l'API
-feature_importance_endpoint = f"{api_url}/feature-importance"
-feature_response = requests.get(feature_importance_endpoint)
-
-if feature_response.status_code == 200:
-    # Récupérer les 10 features les plus importantes
-    feature_data = feature_response.json()
-    top_10_features = [feature["Feature"] for feature in feature_data["top_10_feature_importance"]]
-
-
-
-#--------------------------------------------------------------------------------------------------
-# Bouton d'obtention des informations du client
-if st.button("Obtenir les Informations du Client"):
-    # Construire l'URL de l'API pour ce client
-    endpoint = f"{api_url}/client/{client_id}"
-    
-    # Envoyer une requête GET à l'API
-    response = requests.get(endpoint)
-
-    if response.status_code == 200:
-        # Récupérer les données JSON renvoyées par l'API
-        data = response.json()
-        probability = data['probability_of_default']
-        decision = data["decision"]
-        
-        # Récupérer les valeurs SHAP
-        shap_endpoint = f"{api_url}/client/{client_id}"
-        shap_response = requests.get(shap_endpoint)
-        
-        if shap_response.status_code == 200:
-            shap_data = shap_response.json()
-            shap_values = np.array(shap_data["shap_values"]["shap_values"])
-            features = shap_data["shap_values"]["features"]
-            
-            # Récupérer les valeurs du client uniquement pour les 10 features importantes
-            client_values = {k: v for k, v in shap_data.get("client_feature_values", {}).items() if k in top_10_features}
-        else:
-            shap_values = None
-            features = None
-            client_values = {}
-    else:
-        st.error("Erreur lors de la récupération des informations du client.")
-        data = None
-        probability = None
-        decision = None
-        shap_values = None
-        features = None
-        client_values = {}
-
-
-
-# -------------------------------------------------------------------------------------
-# Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
-if data:
-    decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
-    st.markdown(f"""
-        <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
-                    border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
-            {decision}
-        </div>
-    """, unsafe_allow_html=True)
-
-
-
-# -------------------------------------------------------------------------------------
-# Panneau latéral pour les 10 caractéristiques principales
-
-if client_values:
-    st.sidebar.header("Modifier les valeurs des 10 caractéristiques principales")
-
-    modified_values = {}
-    # Pour chaque caractéristique, on affiche la valeur actuelle et on permet la modification
-    for feature, value in client_values.items():
-        if value is None:
-            value = 0  # Assigner une valeur par défaut si la valeur est None
-        # Ajouter un champ d'entrée pour chaque feature à modifier
-        modified_value = st.sidebar.number_input(f"{feature} (Actuel : {value})", value=float(value))
-        modified_values[feature] = modified_value
-
-    # Bouton pour relancer une prédiction avec les valeurs modifiées
-    if st.sidebar.button("Mettre à jour la prédiction avec les valeurs modifiées"):
-        # Envoyer les nouvelles valeurs à l'API seulement quand le bouton est cliqué
-        modified_client_data = {"client_id": client_id, "modified_features": modified_values}
-        updated_response = requests.post(f"{api_url}/update-client", json=modified_client_data)
-
-        if updated_response.status_code == 200:
-            updated_data = updated_response.json()
-            updated_probability = updated_data['probability_of_default']
-            updated_decision = updated_data['decision']
-
-            # Afficher la nouvelle décision
-            st.write("### Nouvelle décision avec les valeurs modifiées")
-            updated_decision_color = "#008BFB" if updated_decision == "Crédit accordé" else "#FF005E"
-            st.markdown(f"""
-                <div style='display: inline-block; padding: 10px 20px; border: 2px solid {updated_decision_color}; 
-                            border-radius: 10px; color: {updated_decision_color}; font-size: 24px; font-weight: bold;'>
-                    {updated_decision}
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Afficher la nouvelle probabilité sous forme de compteur
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=updated_probability * 100,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Nouvelle probabilité de Défaut", 'font': {'size': 24}},
-                delta={'reference': 36, 'font': {'size': 20}},
-                number={'font': {'size': 60, 'color': 'black'}},
-                gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue", 'tickfont': {'size': 20}},
-                    'bar': {'color': "black"},
-                    'bgcolor': "white",
-                    'borderwidth': 2,
-                    'bordercolor': "gray",
-                    'steps': [
-                        {'range': [0, 36], 'color': '#008BFB'},  # Couleur pour en dessous du seuil
-                        {'range': [36, 100], 'color': '#FF005E'}  # Couleur pour au-dessus du seuil
-                    ],
-                    'threshold': {
-                        'line': {'color': "darkblue", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 36
-                    }
-                }
-            ))
-            st.plotly_chart(fig_gauge)
-
-        else:
-            st.error("Erreur lors de la mise à jour des valeurs du client.")
-
-
-
-
-
-
-#-------------------------------------------------------------------------------------------------
-# Création des onglets
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Le client", 
-    "Le modèle global", 
-    "Distribution des Caractéristiques", 
-    "Analyse Bi-variée des caractéristiques", 
-    "Description des caractéristiques"
-])
-
+if selection == "Accueil":
+    st.title("Credit Scoring")
+    st.markdown(""" **Bienvenue sur le tableau de bord interactif d’octroi de crédit de la société Prêt à dépenser!**  
+    En entrant l'ID d'un client, vous obtenez une décision d'octroi de crédit basée sur un modèle de machine learning 
+    entraîné sur les données historiques de plus de 300 000 clients. Les différentes sections de ce tableau de bord vous 
+    permettent d’avoir une vue détaillée des facteurs déterminants dans la décision d’octroi de crédit et de faciliter 
+    une potentielle réévaluation de la décision.
+            """)
 
 
 
@@ -240,9 +90,85 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # - la décision d'octroi de crédit sous forme de compteur avec indication de la valeur seuil de décision.
 # - la feature importance locale (valeurs shap)
 
+if selection == "Le client: décision d'octroi de crédit":
+    st.header("Décision d'octroi de crédit du client")
 
-with tab1:
-    # st.header("Décision d'octroi de crédit et Importance Locale")
+    client_id = st.text_input("Entrez l'ID du Client")
+
+    # Initialiser les variables pour éviter l'erreur si le bouton n'est pas cliqué
+    data = None
+    probability = None
+    decision = None
+    shap_values = None
+    features = None
+    client_values = {}  # Initialisation pour éviter les erreurs
+    top_10_features = []  # Initialisation pour récupérer le top 10 des features
+
+
+    ##################################################################################################
+    # Récupérer le top 10 des features via l'API
+    feature_importance_endpoint = f"{api_url}/feature-importance"
+    feature_response = requests.get(feature_importance_endpoint)
+
+    if feature_response.status_code == 200:
+        # Récupérer les 10 features les plus importantes
+        feature_data = feature_response.json()
+        top_10_features = [feature["Feature"] for feature in feature_data["top_10_feature_importance"]]
+
+
+    #--------------------------------------------------------------------------------------------------
+    # Bouton d'obtention des informations du client
+    if st.button("Obtenir les Informations du Client"):
+        st.session_state['client_id'] = client_id  # Stocker client_id dans session_state
+        # Construire l'URL de l'API pour ce client
+        endpoint = f"{api_url}/client/{client_id}"
+        
+        # Envoyer une requête GET à l'API
+        response = requests.get(endpoint)
+
+        if response.status_code == 200:
+            # Récupérer les données JSON renvoyées par l'API
+            data = response.json()
+            probability = data['probability_of_default']
+            decision = data["decision"]
+            
+            # Récupérer les valeurs SHAP
+            shap_endpoint = f"{api_url}/client/{client_id}"
+            shap_response = requests.get(shap_endpoint)
+            
+            if shap_response.status_code == 200:
+                shap_data = shap_response.json()
+                shap_values = np.array(shap_data["shap_values"]["shap_values"])
+                features = shap_data["shap_values"]["features"]
+                
+                # Récupérer les valeurs du client uniquement pour les 10 features importantes
+                client_values = {k: v for k, v in shap_data.get("client_feature_values", {}).items() if k in top_10_features}
+            else:
+                shap_values = None
+                features = None
+                client_values = {}
+        else:
+            st.error("Erreur lors de la récupération des informations du client.")
+            data = None
+            probability = None
+            decision = None
+            shap_values = None
+            features = None
+            client_values = {}
+
+
+
+    # -------------------------------------------------------------------------------------
+    # Affichage de la décision d'octroi de crédit après avoir cliqué sur le bouton
+
+    if data:
+        decision_color = "#008BFB" if decision == "Crédit accordé" else "#FF005E"
+        st.markdown(f"""
+            <div style='display: inline-block; padding: 10px 20px; border: 2px solid {decision_color}; 
+                        border-radius: 10px; color: {decision_color}; font-size: 24px; font-weight: bold;'>
+                {decision}
+            </div>
+        """, unsafe_allow_html=True)
 
     # Afficher les informations du client et la décision
     if data:
@@ -260,6 +186,8 @@ with tab1:
         Si le client se situe proche du seuil de décision, vous pouvez regarder en détail les caractéristiques 
         du client qui ont contribué à cette décision grâce à la figure des contributions des caractéristiques 
         ci-dessous et réévaluer votre décision. """)
+
+        
 
         fig_gauge = go.Figure(go.Indicator(
             mode="gauge+number+delta",
@@ -318,54 +246,6 @@ with tab1:
 
 
 
-###################################################################################################
-# Onglet 2 : Importance Globale des Features dans le modèle
-#-----------------------------------------------------------------------------------------------
-
-# Description: Visualisation des importances des caractéristiques issues du top 10 des features importances globales
-# du modèle seulement seulement.
-
-
-with tab2:
-    # st.header("Importance Globale des caractéristiques (Top 10)")
-    st.write("""L'histogramme représente les 10 plus importantes caractéristiques qui ont contribuées
-    à l'élaboration du modèle de prédiction de défaut du client. """)
-
-    # Construire l'URL de l'API pour récupérer la feature importance
-    feature_importance_endpoint = f"{api_url}/feature-importance"
-    
-    # Envoyer une requête GET pour obtenir les 10 features les plus importantes
-    feature_response = requests.get(feature_importance_endpoint)
-    
-    if feature_response.status_code == 200:
-        # Récupérer les données JSON renvoyées par l'API
-        feature_data = feature_response.json()
-        feature_importance = pd.DataFrame(feature_data["top_10_feature_importance"])
-
-        # Afficher le tableau des features importantes
-        # st.write("### Top 10 Features les Plus Importantes")
-        # st.write(feature_importance)
-
-        # Visualiser les features importantes sous forme de graphique
-        # st.write("### Top 10 des features importances globales")
-        plt.figure(figsize=(10, 6))
-        plt.barh(feature_importance['Feature'], feature_importance['Importance'], color='skyblue')
-        plt.xlabel("Importance")
-        plt.ylabel("Feature")
-        plt.title("Top 10 Features les Plus Importantes")
-        st.pyplot(plt)
-        plt.close()
-    else:
-        st.error("Erreur lors de la récupération des features importantes.")
-
-
-
-
-
-
-
-
-
 
 ###################################################################################################
 # Onglet 3 : Distribution des caractéristiques
@@ -379,14 +259,22 @@ with tab2:
 # La situation du client concerné par l'analyse est indiquée par une ligne verticale.
 
 
-with tab3:
-    # st.header("Distribution des Variables")
+elif selection == "Distribution des Caractéristiques":
+    st.header("Distribution des Caractéristiques")
     st.markdown("""
         Choisissez une des 10 caractéristiques les plus importantes du modèle
         afin de visualiser la distribution de tous les clients, celle des clients ayant remboursé leur
         crédit, et celle des clients en défaut. La ligne verticale indique la position du client par 
         rapport à l'ensemble des autres clients.
     """)
+
+    #---------------------------------------------------------------------------------------------
+    # Vérifier si 'client_id' est dans st.session_state
+    if 'client_id' not in st.session_state:
+        st.error("Veuillez entrer un ID client dans l'onglet 'Le client'.")
+    else:
+        client_id = st.session_state['client_id']  # Récupérer client_id depuis session_state
+    #---------------------------------------------------------------------------------------------
 
     # Récupérer les données des 10 features les plus importantes via l'API
     feature_data_endpoint = f"{api_url}/feature-data"
@@ -500,12 +388,20 @@ with tab3:
 # La situation du client concerné par l'analyse est indiquée par une croix rouge.
 
 
-with tab4:
-    # st.header("Analyse Bi-variée")
+elif selection == "Analyse Bi-variée":
+    st.header("Analyse Bi-variée des Caractéristiques")
     st.write("""Sélectionnez deux caractéristiques parmi les 10 caractéristiques les plus importantes 
     pour visualiser un scatter plot de tous les clients, des clients ayant remboursé leur prêt ou des 
     clients en défaut. La croix rouge indique la position du client par rapport à l'ensemble
     des autres clients.""")
+
+    #---------------------------------------------------------------------------------------------
+    # Vérifier si 'client_id' est dans st.session_state
+    if 'client_id' not in st.session_state:
+        st.error("Veuillez entrer un ID client dans l'onglet 'Le client'.")
+    else:
+        client_id = st.session_state['client_id']  # Récupérer client_id depuis session_state
+    #---------------------------------------------------------------------------------------------
 
     # Récupérer les données des 10 features les plus importantes via l'API
     feature_data_endpoint = f"{api_url}/feature-data"
@@ -622,6 +518,54 @@ with tab4:
 
 
 
+###################################################################################################
+# Onglet 2 : Importance Globale des Features dans le modèle
+#-----------------------------------------------------------------------------------------------
+
+# Description: Visualisation des importances des caractéristiques issues du top 10 des features importances globales
+# du modèle seulement seulement.
+
+
+elif selection == "Le modèle global":
+    st.header("Modèle Global: Importance des Caractéristiques")
+    st.write("""L'histogramme représente les 10 plus importantes caractéristiques qui ont contribuées
+    à l'élaboration du modèle de prédiction de défaut du client. """)
+
+    # Construire l'URL de l'API pour récupérer la feature importance
+    feature_importance_endpoint = f"{api_url}/feature-importance"
+    
+    # Envoyer une requête GET pour obtenir les 10 features les plus importantes
+    feature_response = requests.get(feature_importance_endpoint)
+    
+    if feature_response.status_code == 200:
+        # Récupérer les données JSON renvoyées par l'API
+        feature_data = feature_response.json()
+        feature_importance = pd.DataFrame(feature_data["top_10_feature_importance"])
+
+        # Afficher le tableau des features importantes
+        # st.write("### Top 10 Features les Plus Importantes")
+        # st.write(feature_importance)
+
+        # Visualiser les features importantes sous forme de graphique
+        # st.write("### Top 10 des features importances globales")
+        plt.figure(figsize=(10, 6))
+        plt.barh(feature_importance['Feature'], feature_importance['Importance'], color='skyblue')
+        plt.xlabel("Importance")
+        plt.ylabel("Feature")
+        plt.title("Top 10 Features les Plus Importantes")
+        st.pyplot(plt)
+        plt.close()
+    else:
+        st.error("Erreur lors de la récupération des features importantes.")
+
+
+
+
+
+
+
+
+
 
 ###################################################################################################
 # Onglet 5 : Description des caractéristiques
@@ -631,8 +575,8 @@ with tab4:
 # des colonnes en anglais.
 
 
-with tab5:
-    # st.header("Explications des Variables")
+elif selection == "Description des caractéristiques":
+    st.header("Description des caractéristiques")
     st.write("Sélectionnez une caractéristique pour voir sa description en anglais.")
 
     # Récupérer les données de description via l'API

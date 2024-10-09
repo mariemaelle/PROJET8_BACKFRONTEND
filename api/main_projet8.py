@@ -1,3 +1,19 @@
+##################################################################################################
+### API CREDIT SCORING
+##################################################################################################
+
+"""
+Sections principales:
+1. Importation des bibliothèques et initialisation de l'API
+2. Chargement des modèles et données
+3. Fonction
+4. Endpoint
+"""
+
+###############################################################################################################
+# Import des bibliothèques et initialisation de l'API
+#--------------------------------------------------------------------------------------------------
+
 from fastapi import FastAPI, HTTPException
 import pandas as pd
 import numpy as np
@@ -10,7 +26,10 @@ app = FastAPI()
 # Définir les chemins relatifs à partir du dossier "api"
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Revenir au dossier "backend"
 
-#-------------------------------------------------------
+
+
+
+###############################################################################################################
 # CHARGEMENT DES MODELES ET DONNEES
 
 # Charger le modèle de machine learning
@@ -18,30 +37,38 @@ model_path = os.path.join(base_path, "model", "lightgbm_classifier_model", "mode
 with open(model_path, "rb") as f:
     model = pickle.load(f)
 
-# Charger les données clients CSV
+# Charger les données clients en CSV
 data_path = os.path.join(base_path, "data", "sample_client_api.csv")
 df = pd.read_csv(data_path)
 
-# Charger la feature importance CSV
+# Charger les features importances en CSV
 feature_importance_path = os.path.join(base_path, "data", "feature_importance.csv")
 feature_importance_df = pd.read_csv(feature_importance_path)
 
-# Charger le fichier contenant les descriptions des colonnes
+# Charger le fichier contenant les descriptions des colonnes en CSV
 file_path = os.path.join(base_path,'data', 'HomeCredit_columns_description.csv')
 df_columns_description = pd.read_csv(file_path, encoding='ISO-8859-1')
 
 # Utiliser le seuil pour la décision de prêt
 THRESHOLD = 0.36
 
-#--------------------------------------------------------
+
+
+###############################################################################################################
 # FONCTION
 
 # Fonction utilitaire pour obtenir le top 10 des features
 def get_top_10_features():
     return feature_importance_df['Feature'].head(10).tolist()
 
-#---------------------------------------------------------
-# ENDPOINT
+
+
+
+###############################################################################################################
+# ENDPOINTS
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: récupère données clients, calcule la probabilité de défaut, calcule les valeurs SHAP
 
 @app.get("/client/{client_id}")
 def get_client_info(client_id: int):
@@ -57,7 +84,7 @@ def get_client_info(client_id: int):
     probability = model.predict_proba(features)[:, 1][0]
     decision = "Crédit accordé" if probability < THRESHOLD else "Crédit non accordé"
 
- # Extraire le modèle LightGBM depuis le pipeline
+    # Extraire le modèle LightGBM depuis le pipeline
     lgbm_model = model.named_steps['lgbm']
 
     # Utiliser SHAP pour calculer les valeurs locales des features
@@ -84,6 +111,51 @@ def get_client_info(client_id: int):
         "client_feature_values": client_feature_values
     }
 
+
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: recalculer la probabilité de défaut après avoir modifié le client dans streamlit
+
+@app.post("/update-client")
+def update_client_data(client_id: int, modified_features: dict):
+    # Rechercher les données du client par son ID
+    client_data = df[df["SK_ID_CURR"] == client_id]
+    if client_data.empty:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Appliquer les modifications des features
+    for feature, value in modified_features.items():
+        if feature in df.columns:
+            df.loc[df["SK_ID_CURR"] == client_id, feature] = value
+
+    # Recalculer la prédiction avec les nouvelles valeurs
+    updated_features = client_data.drop(columns=["SK_ID_CURR", "TARGET"])
+    probability = model.predict_proba(updated_features)[:, 1][0]
+    decision = "Crédit accordé" if probability < THRESHOLD else "Crédit non accordé"
+
+    # Utiliser SHAP pour recalculer les nouvelles valeurs locales des features
+    lgbm_model = model.named_steps['lgbm']
+    explainer = shap.TreeExplainer(lgbm_model)
+    shap_values = explainer.shap_values(updated_features)
+
+    # Créer un dictionnaire des nouvelles valeurs SHAP
+    shap_dict = {
+        "features": list(updated_features.columns),
+        "shap_values": shap_values[0].tolist()  # Pour la classe positive (probabilité de défaut)
+    }
+
+    return {
+        "client_id": client_id,
+        "probability_of_default": probability,
+        "decision": decision,
+        "shap_values": shap_dict
+    }
+
+
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: récupère la liste du top 10 des features importances
+
 # Récupère la liste du top 10 features importances
 @app.get("/feature-importance")
 def get_feature_importance():
@@ -94,9 +166,10 @@ def get_feature_importance():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-#-----------------------------------------------------------------------------
-# RECUPERATION DES DONNEES POUR LES AFFICHER DANS STREAMLIT
 
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: récupère les données du top 10 des features importances pour visualisation
 
 # Endpoint pour récupérer les 10 features les plus importantes et leurs données, ainsi que la target
 @app.get("/feature-data")
@@ -125,7 +198,12 @@ def get_feature_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Endpoint pour récupérer les descriptions des features
+
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: récupère les descriptions des features pour visualisation
+
+# récupérer les descriptions des features
 @app.get("/column-description")
 def get_column_description():
     try:
@@ -135,7 +213,11 @@ def get_column_description():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Endpoint pour vérifier que l'API fonctionne
+
+
+#------------------------------------------------------------------------------------------------
+# ENDPOINT: vérifier que l'API fonctionne
+
 @app.get("/")
 def read_root():
     return {"message": "API is running!"}
