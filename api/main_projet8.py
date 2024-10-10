@@ -113,45 +113,6 @@ def get_client_info(client_id: int):
 
 
 
-#------------------------------------------------------------------------------------------------
-# ENDPOINT: recalculer la probabilité de défaut après avoir modifié le client dans streamlit
-
-@app.post("/update-client")
-def update_client_data(client_id: int, modified_features: dict):
-    # Rechercher les données du client par son ID
-    client_data = df[df["SK_ID_CURR"] == client_id]
-    if client_data.empty:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    # Appliquer les modifications des features
-    for feature, value in modified_features.items():
-        if feature in df.columns:
-            df.loc[df["SK_ID_CURR"] == client_id, feature] = value
-
-    # Recalculer la prédiction avec les nouvelles valeurs
-    updated_features = client_data.drop(columns=["SK_ID_CURR", "TARGET"])
-    probability = model.predict_proba(updated_features)[:, 1][0]
-    decision = "Crédit accordé" if probability < THRESHOLD else "Crédit non accordé"
-
-    # Utiliser SHAP pour recalculer les nouvelles valeurs locales des features
-    lgbm_model = model.named_steps['lgbm']
-    explainer = shap.TreeExplainer(lgbm_model)
-    shap_values = explainer.shap_values(updated_features)
-
-    # Créer un dictionnaire des nouvelles valeurs SHAP
-    shap_dict = {
-        "features": list(updated_features.columns),
-        "shap_values": shap_values[0].tolist()  # Pour la classe positive (probabilité de défaut)
-    }
-
-    return {
-        "client_id": client_id,
-        "probability_of_default": probability,
-        "decision": decision,
-        "shap_values": shap_dict
-    }
-
-
 
 #------------------------------------------------------------------------------------------------
 # ENDPOINT: récupère la liste du top 10 des features importances
