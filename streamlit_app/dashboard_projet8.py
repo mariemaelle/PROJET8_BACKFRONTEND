@@ -32,8 +32,11 @@ import base64
 import math
 import plotly.graph_objects as go
 
+# # Adresse de l'API
+# api_url = "http://127.0.0.1:8000"
+
 # Adresse de l'API
-api_url = "http://127.0.0.1:8000"
+api_url = "https://projet8-credit-risk.ew.r.appspot.com"
 
 # Threshold pour la décision
 THRESHOLD = 0.36

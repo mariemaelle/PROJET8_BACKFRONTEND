@@ -9,4 +9,4 @@ python-multipart==0.0.9
 waitress==2.1.2
 uvicorn==0.30.6
 shap==0.45.1
-numpy<2.0.0
+numpy==1.26.4
