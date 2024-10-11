@@ -17,26 +17,26 @@ probabilités de défaut de paiement. L'interface interagit avec l'API et permet
 - Visualisation des distributions des valeurs des caractéristiques et diagramme de dispersion par couple de caractéristiques les plus importantes du modèle.
 - Visualisation de l'importance des 10 caractéristiques les plus importantes du modèle de prédiction.
 - Onglet de sélection des caractéristiques pour obtenir leur description.
-- Interface web interactive basée sur **Streamlit** et API construite avec **FastAPI** et déployée avec gcloud app engine.
+- Interface web interactive basée sur **Streamlit** et API construite avec **FastAPI** et déployée avec Google App Engine.
 
 ## Prérequis
-- Python 3.9 ou version supérieure
+- Python 3.9 ou version supérieure (fonctionne avec 3.11.9)
 - Google Cloud SDK (pour le déploiement sur Google Cloud)
 - GitHub (pour le déploiement avec Streamlit cloud)
-- Streamlit Cloud (pour le déploiement de l'interface avec Streamlit Cloud)
+- Compte Streamlit Cloud (pour le déploiement de l'interface avec Streamlit Cloud)
 - Bibliothèques Python mentionnées dans le `requirements.txt` à la racine pour l'API et dans le sous-dossier Streamlit_app pour le déploiement de l'interface web.
 
 ## Utilisation
 
 ### Commandes pour utilisation en local
-*API*
-pip install -r requirements.txt        # Pour installer les dépendances de l'API FastAPI
-uvicorn api.main_projet8:app --reload  # Pour exécuter l'API en local
-http://127.0.0.1:8000/docs             # Pour visualiser la documentation de l'API
-
-*Streamlit Interface*
-streamlit run streamlit_app/dashboard_projet8.py     # Pour lancer l'interface streamlit en local
-http://localhost:8501                                # Accès à l'interface streamlit
+*API*  
+pip install -r requirements.txt        # Pour installer les dépendances de l'API FastAPI  
+uvicorn api.main_projet8:app --reload  # Pour exécuter l'API en local  
+http://127.0.0.1:8000/docs             # Pour visualiser la documentation de l'API  
+  
+*Streamlit Interface*  
+streamlit run streamlit_app/dashboard_projet8.py     # Pour lancer l'interface streamlit en local  
+http://localhost:8501                                # Accès à l'interface streamlit  
 
 ### Utilisation de l'interface
 - Entrez l'ID d'un client pour voir sa décision de crédit et sa probabilité de défaut
@@ -44,17 +44,17 @@ http://localhost:8501                                # Accès à l'interface str
 - Pour interpréter les caractéristiques, choisir une caractéristique dans l'onglet "Description" et lire son contenu.
 
 ### Déploiement de l'API sur Google Cloud App Engine
-ID du projet: projet8-credit-risk
-gcloud auth login                                 # S'authentifier avec Google CLI
-gcloud config set project projet8-credit-risk     # Configure mon projet gcloud
-gcloud projects list                              # Trouver l'ID du projet dans ma liste
-gcloud config list                                # Vérifie que la session est active et bien configurée
-gcloud services enable appengine.googleapi.com    # Vérfier mes services activés sur google app engine 
-                                                  # (autorisations nécessaires à modifier directement dans la console gcloud: 
-                                                  # IAM --> choisir le compte de service --> modifier --> Ajouter un autre role --> Administrateur storage)
-gcloud app deploy                                 # Déploiement de l'API après avoir créé son dossier de travail
-gcloud app logs tail -s default                   # Pour comprendre les bugs de déploiement
-
+ID du projet: projet8-credit-risk  
+gcloud auth login                                 # S'authentifier avec Google CLI  
+gcloud config set project projet8-credit-risk     # Configure mon projet gcloud  
+gcloud projects list                              # Trouver l'ID du projet dans ma liste  
+gcloud config list                                # Vérifie que la session est active et bien configurée  
+gcloud services enable appengine.googleapi.com    # Vérfier mes services activés sur google app engine   
+                                                  # (autorisations nécessaires à modifier directement dans la console gcloud:   
+                                                  # IAM --> choisir le compte de service --> modifier --> Ajouter un autre role --> Administrateur storage)  
+gcloud app deploy                                 # Déploiement de l'API après avoir créé son dossier de travail  
+gcloud app logs tail -s default                   # Pour comprendre les bugs de déploiement  
+  
 ### Déploiement de l'interface Streamlit
 - Dans le code Streamlit: s'assurer de modifier l'URL de l'API déployée sur le cloud
 - Pusher les modifications sur GitHub
